@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Currency Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .input-focus:focus {
+            outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.2);
+        }
+
+        /* Spinner Animation */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #764ba2;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="glass-card w-full max-w-md p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Currency Converter</h1>
+            <p class="text-gray-500 text-sm">Real-time exchange rates</p>
+        </div>
+
+        <div class="space-y-6">
+            <!-- Amount Input -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Amount</label>
+                <div class="relative">
+                    <input type="number" id="amount" value="1" step="0.01" 
+                        class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl input-focus transition-all text-lg font-medium"
+                        placeholder="0.00">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- From Currency -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">From</label>
+                    <select id="fromCurrency" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl input-focus appearance-none cursor-pointer">
+                        <option value="INR" selected>🇮🇳 INR - Rupee</option>
+                        <option value="USD">🇺🇸 USD - Dollar</option>
+                        <option value="EUR">🇪🇺 EUR - Euro</option>
+                        <option value="GBP">🇬🇧 GBP - Pound</option>
+                        <option value="JPY">🇯🇵 JPY - Yen</option>
+                        <option value="AUD">🇦🇺 AUD - Dollar</option>
+                        <option value="CAD">🇨🇦 CAD - Dollar</option>
+                        <option value="CNY">🇨🇳 CNY - Yuan</option>
+                    </select>
+                </div>
+
+                <!-- To Currency -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">To</label>
+                    <select id="toCurrency" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl input-focus appearance-none cursor-pointer">
+                        <option value="USD" selected>🇺🇸 USD - Dollar</option>
+                        <option value="INR">🇮🇳 INR - Rupee</option>
+                        <option value="EUR">🇪🇺 EUR - Euro</option>
+                        <option value="GBP">🇬🇧 GBP - Pound</option>
+                        <option value="JPY">🇯🇵 JPY - Yen</option>
+                        <option value="AUD">🇦🇺 AUD - Dollar</option>
+                        <option value="CAD">🇨🇦 CAD - Dollar</option>
+                        <option value="CNY">🇨🇳 CNY - Yuan</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Result Area -->
+            <div id="resultContainer" class="mt-8 p-6 bg-purple-50 rounded-2xl border border-purple-100 text-center transition-all">
+                <p id="loadingText" class="text-purple-600 font-medium hidden">
+                    <span class="loader"></span>Fetching live rates...
+                </p>
+                <div id="resultOutput">
+                    <p class="text-sm text-purple-400 font-semibold uppercase tracking-wider mb-1">Result</p>
+                    <h2 id="finalAmount" class="text-3xl font-bold text-purple-700">--</h2>
+                    <p id="exchangeRateInfo" class="text-xs text-purple-400 mt-2">1 INR = -- USD</p>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button onclick="convertCurrency()" class="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-200 transition-all transform active:scale-95">
+                Convert Now
+            </button>
+
+            <!-- Message Box -->
+            <div id="errorBox" class="hidden mt-4 p-3 bg-red-100 text-red-700 text-sm rounded-lg text-center">
+                Something went wrong. Please try again.
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-gray-400 text-xs">
+            Data provided by live exchange rate API
+        </footer>
+    </div>
+
+    <script>
+        // Use a public API for live rates (ExchangeRate-API)
+        // No API key needed for this simple free tier demo
+        const API_URL = "https://open.er-api.com/v6/latest/";
+
+        async function convertCurrency() {
+            const amount = document.getElementById('amount').value;
+            const from = document.getElementById('fromCurrency').value;
+            const to = document.getElementById('toCurrency').value;
+            
+            const loadingText = document.getElementById('loadingText');
+            const resultOutput = document.getElementById('resultOutput');
+            const errorBox = document.getElementById('errorBox');
+            const finalAmount = document.getElementById('finalAmount');
+            const rateInfo = document.getElementById('exchangeRateInfo');
+
+            if (!amount || amount <= 0) {
+                showError("Please enter a valid amount");
+                return;
+            }
+
+            // UI State: Loading
+            loadingText.classList.remove('hidden');
+            resultOutput.classList.add('hidden');
+            errorBox.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_URL}${from}`);
+                if (!response.ok) throw new Error("API call failed");
+                
+                const data = await response.json();
+                const rate = data.rates[to];
+                const convertedValue = (amount * rate).toFixed(2);
+
+                // UI State: Success
+                finalAmount.innerText = `${new Intl.NumberFormat().format(convertedValue)} ${to}`;
+                rateInfo.innerText = `1 ${from} = ${rate.toFixed(4)} ${to}`;
+                
+                loadingText.classList.add('hidden');
+                resultOutput.classList.remove('hidden');
+            } catch (err) {
+                console.error(err);
+                showError("Could not fetch live rates. Check your connection.");
+            }
+        }
+
+        function showError(msg) {
+            const errorBox = document.getElementById('errorBox');
+            const loadingText = document.getElementById('loadingText');
+            errorBox.innerText = msg;
+            errorBox.classList.remove('hidden');
+            loadingText.classList.add('hidden');
+        }
+
+        // Auto-run on load
+        window.onload = convertCurrency;
+    </script>
+</body>
+</html>
